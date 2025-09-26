@@ -1,47 +1,70 @@
 import { Request, Response, NextFunction } from 'express';
-import { IUserService } from '../interfaces/IUserService';
-import { UserCreateDto } from '../dtos/UserCreateDto';
-import { UserUpdateDto } from '../dtos/UserUpdateDto';
+import { CreateUserUseCase } from '../Application/UseCases/CreateUserUseCase';
+import { ListUsersUseCase } from '../Application/UseCases/ListUsersUseCase';
+import { GetUserUseCase } from '../Application/UseCases/GetUserUseCase';
+import { UpdateUserUseCase } from '../Application/UseCases/UpdateUserUseCase';
+import { DeleteUserUseCase } from '../Application/UseCases/DeleteUserUseCase';
+import { UserInputDto } from '../Application/DTOs/UserInputDto';
+import { UserUpdateDto } from '../Application/DTOs/UserUpdateDto';
 
 export class UserController {
-  constructor(private userService: IUserService) {}
+  constructor(
+    private createUserUseCase: CreateUserUseCase,
+    private listUsersUseCase: ListUsersUseCase,
+    private getUserUseCase: GetUserUseCase,
+    private updateUserUseCase: UpdateUserUseCase,
+    private deleteUserUseCase: DeleteUserUseCase
+  ) {}
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const body = req.body as UserCreateDto;
-      const created = await this.userService.createUser(body);
-      res.status(201).json(created);
-    } catch (err) { next(err); }
+      const dto: UserInputDto = req.body;
+      const result = await this.createUserUseCase.execute(dto);
+      return res.status(201).json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
   list = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const pageSize = parseInt(req.query.pageSize as string) || 20;
-      const users = await this.userService.listUsers(page, pageSize);
-      res.json(users);
-    } catch (err) { next(err); }
+      const page = Number(req.query.page) || 1;
+      const pageSize = Number(req.query.pageSize) || 20;
+      const result = await this.listUsersUseCase.execute(page, pageSize);
+      return res.json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
-  getById = async (req: Request, res: Response, next: NextFunction) => {
+  get = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = await this.userService.getUser(req.params.id);
-      res.json(user);
-    } catch (err) { next(err); }
+      const id = req.params.id;
+      const result = await this.getUserUseCase.execute(id);
+      return res.json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const body = req.body as UserUpdateDto;
-      const updated = await this.userService.updateUser(req.params.id, body);
-      res.json(updated);
-    } catch (err) { next(err); }
+      const id = req.params.id;
+      const dto: UserUpdateDto = req.body;
+      const result = await this.updateUserUseCase.execute(id, dto);
+      return res.json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
-  remove = async (req: Request, res: Response, next: NextFunction) => {
+  delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await this.userService.deleteUser(req.params.id);
-      res.status(204).send();
-    } catch (err) { next(err); }
+      const id = req.params.id;
+      await this.deleteUserUseCase.execute(id);
+      return res.status(204).send();
+    } catch (err: any) {
+      return next(err);
+    }
   };
 }
