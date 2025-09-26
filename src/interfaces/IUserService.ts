@@ -1,9 +1,10 @@
-import { User } from '../entities/User.entity';
-import { UserCreateDto } from '../dtos/UserCreateDto';
-import { UserUpdateDto } from '../dtos/UserUpdateDto';
+// src/interfaces/IUserService.ts
+import { User } from '../Domain/Entities/User';
+import { UserInputDto } from '../Application/DTOs/UserInputDto';
+import { UserUpdateDto } from '../Application/DTOs/UserUpdateDto';
 
 export interface IUserService {
-  createUser(data: UserCreateDto): Promise<User>;
+  createUser(data: UserInputDto): Promise<User>;
   listUsers(page?: number, pageSize?: number): Promise<User[]>;
   getUser(id: string): Promise<User>;
   updateUser(id: string, data: UserUpdateDto): Promise<User>;

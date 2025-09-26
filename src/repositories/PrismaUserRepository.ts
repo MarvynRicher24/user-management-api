@@ -1,46 +1,69 @@
-import { IUserRepository } from '../interfaces/IUserRepository';
+// src/repositories/PrismaUserRepository.ts
 import { prisma } from '../prisma/client';
-import { User } from '../entities/User.entity';
-import { UserCreateDto } from '../dtos/UserCreateDto';
-import { UserUpdateDto } from '../dtos/UserUpdateDto';
+import { IUserRepository } from '../interfaces/IUserRepository';
+import { User as DomainUser } from '../Domain/Entities/User';
+import { Email } from '../Domain/ValueObjects/Email';
+import { Phone } from '../Domain/ValueObjects/Phone';
+import { Role } from '../Domain/Enums/Role';
+
+/** Map DB row -> Domain entity or null */
+function rowToDomain(row: any): DomainUser | null {
+  if (!row) return null;
+  return DomainUser.create({
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: Email.create(row.email),
+    phone: Phone.create(row.phone ?? null),
+    role: row.role as Role,
+    createdAt: new Date(row.createdAt),
+    updatedAt: new Date(row.updatedAt),
+  });
+}
 
 export class PrismaUserRepository implements IUserRepository {
-  async create(data: UserCreateDto & { role: string }): Promise<User> {
+  async create(data: any): Promise<DomainUser> {
     const created = await prisma.user.create({ data });
-    return created as unknown as User;
+    const domain = rowToDomain(created);
+    if (!domain) throw new Error('Failed to map created user');
+    return domain;
   }
 
-  async findAll(skip = 0, take = 20): Promise<User[]> {
-    const users = await prisma.user.findMany({
+  async findAll(skip = 0, take = 20): Promise<DomainUser[]> {
+    const rows = await prisma.user.findMany({
       where: { deletedAt: null },
       skip,
       take,
       orderBy: { createdAt: 'desc' },
     });
-    return users as unknown as User[];
+    // explicit typing on mapping to avoid implicit any
+    const mapped = rows.map((row: any) => rowToDomain(row));
+    return mapped.filter((r: DomainUser | null): r is DomainUser => r !== null);
   }
 
-  async findById(id: string): Promise<User | null> {
-    const u = await prisma.user.findUnique({ where: { id } });
-    if (!u || u.deletedAt) return null;
-    return u as unknown as User;
+  async findById(id: string): Promise<DomainUser | null> {
+    const row = await prisma.user.findUnique({ where: { id } });
+    if (!row || row.deletedAt) return null;
+    return rowToDomain(row);
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    const u = await prisma.user.findFirst({ where: { email, deletedAt: null } });
-    return u as unknown as User | null;
+  async findByEmail(email: string): Promise<DomainUser | null> {
+    const row = await prisma.user.findFirst({ where: { email, deletedAt: null } });
+    if (!row) return null;
+    return rowToDomain(row);
   }
 
-  async update(id: string, data: UserUpdateDto): Promise<User> {
+  async update(id: string, data: any): Promise<DomainUser> {
     const updated = await prisma.user.update({ where: { id }, data });
-    return updated as unknown as User;
+    const domain = rowToDomain(updated);
+    if (!domain) throw new Error('Failed to map updated user');
+    return domain;
   }
 
-  async softDelete(id: string): Promise<User> {
-    const deleted = await prisma.user.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-    return deleted as unknown as User;
+  async softDelete(id: string): Promise<DomainUser> {
+    const deleted = await prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
+    const domain = rowToDomain(deleted);
+    if (!domain) throw new Error('Failed to map deleted user');
+    return domain;
   }
 }

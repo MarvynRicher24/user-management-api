@@ -1,47 +1,71 @@
+
 import { Request, Response, NextFunction } from 'express';
-import { IUserService } from '../interfaces/IUserService';
-import { UserCreateDto } from '../dtos/UserCreateDto';
-import { UserUpdateDto } from '../dtos/UserUpdateDto';
+import { Mediator } from '../Application/CQRS/Core/Mediator';
+import { CreateUserCommand } from '../Application/CQRS/Commands/CreateUserCommand';
+import { GetUserQuery } from '../Application/CQRS/Queries/GetUserQuery';
+import { ListUsersQuery } from '../Application/CQRS/Queries/ListUsersQuery';
+import { UpdateUserCommand } from '../Application/CQRS/Commands/UpdateUserCommand';
+import { DeleteUserCommand } from '../Application/CQRS/Commands/DeleteUserCommand';
+import { UserInputDto } from '../Application/DTOs/UserInputDto';
 
 export class UserController {
-  constructor(private userService: IUserService) {}
+  constructor(private mediator: Mediator) {}
 
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const body = req.body as UserCreateDto;
-      const created = await this.userService.createUser(body);
-      res.status(201).json(created);
-    } catch (err) { next(err); }
+      const body: UserInputDto = req.body;
+      const cmd = new CreateUserCommand(body.firstName, body.lastName, body.email, body.phone);
+      const result = await this.mediator.send(cmd);
+      return res.status(201).json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
   list = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const pageSize = parseInt(req.query.pageSize as string) || 20;
-      const users = await this.userService.listUsers(page, pageSize);
-      res.json(users);
-    } catch (err) { next(err); }
+      const page = Number(req.query.page) || 1;
+      const pageSize = Number(req.query.pageSize) || 20;
+      const query = new ListUsersQuery(page, pageSize);
+      const result = await this.mediator.send(query);
+      return res.json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
-  getById = async (req: Request, res: Response, next: NextFunction) => {
+  get = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = await this.userService.getUser(req.params.id);
-      res.json(user);
-    } catch (err) { next(err); }
+      const id = req.params.id;
+      const query = new GetUserQuery(id);
+      const result = await this.mediator.send(query);
+      if (!result) return res.status(404).json({ message: 'User not found' });
+      return res.json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const body = req.body as UserUpdateDto;
-      const updated = await this.userService.updateUser(req.params.id, body);
-      res.json(updated);
-    } catch (err) { next(err); }
+      const id = req.params.id;
+      const data = req.body;
+      const cmd = new UpdateUserCommand(id, data);
+      const result = await this.mediator.send(cmd);
+      return res.json(result);
+    } catch (err: any) {
+      return next(err);
+    }
   };
 
-  remove = async (req: Request, res: Response, next: NextFunction) => {
+  delete = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await this.userService.deleteUser(req.params.id);
-      res.status(204).send();
-    } catch (err) { next(err); }
+      const id = req.params.id;
+      const cmd = new DeleteUserCommand(id);
+      await this.mediator.send(cmd);
+      return res.status(204).send();
+    } catch (err: any) {
+      return next(err);
+    }
   };
 }
